@@ -1,4 +1,4 @@
-name: Compile kernel
+name: Alioth Build
 
 on:
   workflow_dispatch:
@@ -8,141 +8,156 @@ on:
         required: true
         type: boolean
         default: true
+      release:
+        description: 'Create GitHub Release'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
-  compile:
+  build:
     runs-on: self-hosted
-
     steps:
-      - name: Free disk space
+      - name: Sync workspace (persist between builds)
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          sudo apt-get clean
-          df -h
+          # Always clean clone — avoids stale build artifacts
+          sudo rm -rf ${{ github.workspace }}/build || true
+          git clone --depth=1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} ${{ github.workspace }}/build
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bison flex bc ccache lz4 cpio \
-            python3-dev libssl-dev libelf-dev clang lld llvm \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            gawk dwarves erofs-utils zip tar xz-utils dos2unix
+      - name: Build Docker image
+        working-directory: build
+        run: docker build -t kernel-builder .
 
       - name: Build kernel
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
-          KSU: ${{ inputs.ksu == true && '1' || '0' }}
         run: |
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CLANG_TRIPLE=aarch64-linux-gnu-
+          mkdir -p /tmp/ccache-cache
+          docker run --rm \
+            -v ${{ github.workspace }}/build:/workspace \
+            -v /tmp/ccache-cache:/root/.ccache \
+            -w /workspace \
+            -e KSU=${{ inputs.ksu == false && '0' || '1' }} \
+            -e KBUILD_BUILD_TIMESTAMP='' \
+            -e KBUILD_BUILD_VERSION=${{ github.run_number }} \
+            kernel-builder \
+            bash -c "chmod +x build-kernel.sh && KSU=\$KSU bash build-kernel.sh"
 
-          # Clean previous build artifacts
-          make ARCH=arm64 mrproper 2>/dev/null || true
+      - name: Fix file permissions
+        if: always()
+        run: sudo chown -R $(id -u):$(id -g) ${{ github.workspace }}/build || true
 
-          # Generate merged defconfig
-          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- vendor/xiaomi/alioth_defconfig
-
-          # Merge vendor overlays
-          scripts/kconfig/merge_config.sh -m .config \
-            arch/arm64/configs/vendor/xiaomi/sm8250-common.config \
-            arch/arm64/configs/vendor/xiaomi/alioth.config
-
-          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
-
-          # Enable ReSukiSU if requested
-          if [ "$KSU" = "1" ]; then
-            scripts/config --file .config --enable CONFIG_KSU
-            scripts/config --file .config --enable CONFIG_KSU_MANUAL_HOOK
-            scripts/config --file .config --set-val CONFIG_KSU_VERSION "v1.0.0"
-            make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
+      - name: QA Gates
+        working-directory: build
+        run: |
+          echo "=== QA Gates ==="
+          FAILED=0
+          if [ "${{ inputs.ksu }}" == "true" ]; then
+            if grep -q "CONFIG_KSU=y" out/.config 2>/dev/null; then
+              echo "Gate 0 (KSU): PASS"
+            else
+              echo "Gate 0 (KSU): FAIL"; FAILED=1
+            fi
+            if grep -q "CONFIG_KSU_MANUAL_HOOK=y" out/.config 2>/dev/null; then
+              echo "Gate 1 (Hook mode): PASS"
+            else
+              echo "Gate 1 (Hook mode): WARN"
+            fi
+          else
+            echo "Gate 0-1: SKIPPED (vanilla)"
           fi
+          for gate in "KALLSYMS:CONFIG_KALLSYMS=y" "SELinux:CONFIG_SECURITY_SELINUX=y"; do
+            NAME="${gate%%:*}"; CFG="${gate##*:}"
+            if grep -q "$CFG" out/.config 2>/dev/null; then
+              echo "Gate ($NAME): PASS"
+            else
+              echo "Gate ($NAME): FAIL"; FAILED=1
+            fi
+          done
+          if grep -Eq "CONFIG_ANDROID_BINDER_IPC=[ym]" out/.config 2>/dev/null; then
+            echo "Gate (Binder): PASS"
+          else
+            echo "Gate (Binder): FAIL"; FAILED=1
+          fi
+          IMAGE=""
+          for f in out/arch/arm64/boot/Image out/arch/arm64/boot/Image.gz-dtb; do
+            [ -f "$f" ] && IMAGE="$f" && break
+          done
+          if [ -n "$IMAGE" ]; then
+            SIZE=$(stat -c%s "$IMAGE" 2>/dev/null)
+            [ "$SIZE" -gt 15728640 ] && echo "Gate (Size): PASS ($SIZE)" || { echo "Gate (Size): FAIL ($SIZE)"; FAILED=1; }
+          else
+            echo "Gate (Image): FAIL"; FAILED=1
+          fi
+          if [ -f "out/arch/arm64/boot/dtbo.img" ]; then
+            echo "Gate (dtbo.img): PASS"
+          elif [ -f "out/arch/arm64/boot/dtb" ]; then
+            echo "Gate (dtb): PASS"
+          else
+            echo "Gate (dtb): WARN (dtbo.img not found)"
+          fi
+          if [ -f "out/arch/arm64/boot/dtb" ]; then
+            echo "Gate (dtb): PASS"
+          else
+            echo "Gate (dtb): WARN (dtb not found)"
+          fi
+          [ "$FAILED" -eq 1 ] && { echo "=== QA GATES FAILED ==="; exit 1; }
+          echo "=== QA GATES PASSED ==="
 
-          # Build Image + dtbo with build number in build string
-          make ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- \
-            -j$(nproc) \
-            KBUILD_BUILD_USER=Rve \
-            KBUILD_BUILD_HOST=RvEnterprises \
-            KBUILD_BUILD_TIMESTAMP='' \
-            KBUILD_BUILD_VERSION=${BUILD_NUMBER} \
-            Image.gz dtbs 2>&1 | tee out/compile.log
-
-          # Verify output
-          ls -la arch/arm64/boot/Image.gz
-          ls -la arch/arm64/boot/dtbo.img
-
-      - name: Package AnyKernel3 zip
-        id: package
+      - name: Package AnyKernel3 ZIP
+        working-directory: build
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-          KSU: ${{ inputs.ksu == true && '1' || '0' }}
+          KSU_ENABLED: ${{ inputs.ksu }}
         run: |
           BUILD_DATE=$(date -u +%Y%m%d)
           KSU_LABEL="ReSukiSU"
-          [ "$KSU" = "0" ] && KSU_LABEL="Vanilla"
+          [ "${{ inputs.ksu }}" != "true" ] && KSU_LABEL="Vanilla"
           ZIP_NAME="alioth-kernel-${BUILD_DATE}-b${BUILD_NUMBER}-${KSU_LABEL}.zip"
 
-          # Clone AnyKernel3
           git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git anykernel3
-
-          # Configure AnyKernel3
-          cat > anykernel3/anykernel.sh << 'AKEOF'
-          # AnyKernel3 Ramdisk Mod Script
-          # osm0sis @ xda-developers
-
-          properties() { '
-          kernel.string=Alioth Kernel for Poco F3/Redmi K40/Mi 11X
-          do.devicecheck=1
-          device.name1=alioth
-          device.name2=mi 11x
-          device.name3=redmi k40
-          do.modules=0
-          do.systemless=1
-          do.cleanup=1
-          do.cleanuponabort=0
-          BLOCK=/dev/block/bootdevice/by-name/boot
-          IS_SLOT_DEVICE=1
-          RAMDISK_COMPRESSION=auto
-          PATCH_VBMETA_FLAG=auto
-          '; }
-
-          . tools/ak3-core.sh
-
-          split_boot
-
-          # Enable zswap at boot via kernel cmdline
-          patch_cmdline zswap.enabled 1
-          patch_cmdline zswap.compressor lz4
-          patch_cmdline zswap.zpool z3fold
-          patch_cmdline zswap.max_pool_percent 25
-
-          flash_boot
-          AKEOF
-
-          # Copy kernel image
-          cp arch/arm64/boot/Image.gz anykernel3/
-          # Copy dtbo if exists
-          cp arch/arm64/boot/dtbo.img anykernel3/ 2>/dev/null || true
-
-          # Fix CRLF and package
+          cp out/arch/arm64/boot/Image.gz anykernel3/
+          cp out/arch/arm64/boot/dtbo.img anykernel3/ 2>/dev/null || true
           cd anykernel3
-          dos2unix anykernel.sh META-INF/com/google/android/update-binary \
-            META-INF/com/google/android/updater-script tools/ak3-core.sh 2>/dev/null || true
-
+          dos2unix anykernel.sh META-INF/com/google/android/update-binary META-INF/com/google/android/updater-script tools/ak3-core.sh 2>/dev/null || true
           zip -r9 "../${ZIP_NAME}" * -x '.git' '.github' 'README.md' '*placeholder'
           cd ..
-          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v6
         with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: alioth-kernel-*.zip
+          name: anykernel3-zip
+          path: build/alioth-kernel-*.zip
+          if-no-files-found: error
+
+      - name: Set release env
+        if: inputs.release == true
+        working-directory: build
+        run: |
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+          BUILD_DATE=$(date +'%Y%m%d')
+          TAG_NAME="v${BUILD_DATE}-b${BUILD_NUMBER}"
+          KSU_LABEL="ReSukiSU"
+          [ "${{ inputs.ksu }}" != "true" ] && KSU_LABEL="Vanilla"
+          ZIP_FILE=$(ls *.zip 2>/dev/null | head -1)
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+          echo "KSU_LABEL=${KSU_LABEL}" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=${BUILD_DATE}" >> "$GITHUB_ENV"
+          echo "ZIP_FILE=${ZIP_FILE}" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        if: inputs.release == true
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: "Alioth Kernel ${{ env.KSU_LABEL }} - ${{ env.BUILD_DATE }}"
+          body: |
+            ## RedAlpha Kernel Build
+
+            - **Date:** ${{ env.BUILD_DATE }}
+            - **Device:** Poco F3/Redmi K40/Mi 11X (alioth/SM8250)
+            - **Kernel:** 4.19.325
+            - **Variant:** ${{ env.KSU_LABEL }}
+
+            Flash via TWRP.
+          files: build/${{ env.ZIP_FILE }}
