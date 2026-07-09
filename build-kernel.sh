@@ -68,7 +68,14 @@ fi
 
 # Pre-build vdso to generate vdso-offsets.h (missing dependency in kernel Makefile)
 echo "Pre-building vdso for vdso-offsets.h..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 include/generated/vdso-offsets.h
+mkdir -p include/generated
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso/vdso.so.dbg
+if [ -f arch/arm64/kernel/vdso/vdso.so.dbg ]; then
+    llvm-nm arch/arm64/kernel/vdso/vdso.so.dbg | arch/arm64/kernel/vdso/gen_vdso_offsets.sh | LC_ALL=C sort > include/generated/vdso-offsets.h
+    echo "Generated vdso-offsets.h"
+else
+    echo "WARNING: vdso.so.dbg not generated, vdso-offsets.h may be missing"
+fi
 
 echo "Building kernel (in-tree)..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j1
