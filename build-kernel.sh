@@ -68,8 +68,7 @@ fi
 
 # Pre-build vdso to generate vdso-offsets.h (missing dependency in kernel Makefile)
 echo "Pre-building vdso for vdso-offsets.h..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso32
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 include/generated/vdso-offsets.h
 
 echo "Building kernel (in-tree)..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j1
