@@ -12,7 +12,7 @@ KSU_SUFFIX="_ReSukiSU"
 
 # Clone AnyKernel3 flasher (provides tools/ak3-core.sh, bin/, etc.)
 rm -rf anykernel
-git clone https://github.com/AstideLabs/AnyKernel3 -b master --single-branch --depth=1 anykernel
+git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
 # Overlay our custom anykernel.sh
 cp anykernel.sh anykernel/anykernel.sh
