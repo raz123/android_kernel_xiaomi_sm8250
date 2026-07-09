@@ -1,4 +1,3 @@
-SLOT_SELECT=all
 ### AnyKernel3 Ramdisk Mod Script
 ## osm0sis @ xda-developers
 
@@ -32,6 +31,51 @@ NO_BLOCK_DISPLAY=1
 # import functions/variables and setup patching - see for reference (DO NOT REMOVE)
 . tools/ak3-core.sh;
 
-# flash
+# boot install
+# === Dual-Slot Flash ===
+DUAL_SLOT=1;
+OTHER_BLOCK="";
+if [ "$SLOT" ]; then
+  ui_print " ";
+  ui_print "  -----------------------------------------";
+  ui_print "  Dual-Slot Flash Mode";
+  ui_print "  -----------------------------------------";
+  ui_print "  Default: flash BOTH A/B slots.";
+  ui_print "  Abort: hold VOLUME UP in recovery";
+  ui_print "  -----------------------------------------";
+  ui_print "  ";
+  if timeout 10 getevent -c5 2>/dev/null | grep -qm1 '0001 0073'; then
+    DUAL_SLOT=0;
+    ui_print "  -> VOLUME UP pressed: active slot only!";
+  else
+    ui_print "  -> Flashing BOTH slots!";
+  fi;
+  ui_print "  -----------------------------------------";
+  case "$BLOCK" in
+    *_a) OTHER_BLOCK="${BLOCK%_a}_b";;
+    *_b) OTHER_BLOCK="${BLOCK%_b}_a";;
+  esac;
+  if [ "$OTHER_BLOCK" = "$BLOCK" ] || [ -z "$OTHER_BLOCK" ]; then
+    OTHER_BLOCK="";
+    ui_print "  Warning: could not determine other slot block device.";
+  else
+    ui_print "  Other slot: $OTHER_BLOCK";
+  fi;
+fi;
 split_boot;
 flash_boot;
+# Flash both slots reliably (post-flash_boot)
+if [ "$DUAL_SLOT" = "1" ] && [ -f "${AKHOME}/boot-new.img" ]; then
+  IMG="${AKHOME}/boot-new.img";
+  ui_print "  -> Flashing active slot ($BLOCK)...";
+  if ! dd if="$IMG" of="$BLOCK" bs=4096 2>/dev/null; then
+    ui_print "  WARNING: dd to active slot failed!";
+  fi;
+  if [ "$OTHER_BLOCK" ]; then
+    ui_print "  -> Flashing other slot ($OTHER_BLOCK)...";
+    if ! dd if="$IMG" of="$OTHER_BLOCK" bs=4096 2>/dev/null; then
+      ui_print "  WARNING: dd to other slot failed!";
+    fi;
+  fi;
+fi;
+## end boot install
