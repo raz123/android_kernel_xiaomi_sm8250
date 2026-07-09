@@ -93,6 +93,21 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "Added MODULE_IMPORT_NS compat shim"
 fi
 
+# Pre-generate vdso.lds — 4.19 O=out build fails to auto-generate it
+echo "Pre-generating vdso.lds..."
+mkdir -p out/arch/arm64/kernel/vdso/
+clang -E -P -C -Uaarch64 \
+    -Iarch/arm64/include -Iarch/arm64/include/generated \
+    -Iinclude -Iinclude/generated \
+    -Iarch/arm64/include/uapi -Iarch/arm64/include/generated/uapi \
+    -Iinclude/uapi -Iinclude/generated/uapi \
+    -include include/linux/kconfig.h \
+    --target=aarch64-linux-gnu \
+    arch/arm64/kernel/vdso/vdso.lds.S \
+    -o out/arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || \
+  clang -E -P -C -Uaarch64 \
+    arch/arm64/kernel/vdso/vdso.lds.S \
+    -o out/arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || true
 echo "Building kernel..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j${PARALLEL_JOBS:-$(nproc)}
 echo ""
