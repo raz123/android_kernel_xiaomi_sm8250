@@ -101,9 +101,6 @@ fi
 # Resolve dependency chain after config changes
 make $MAKE_ARGS olddefconfig
 
-# Remove in-tree generated files that confuse prepare3
-# prepare3 checks include/config/ and .config in the source tree
-rm -rf include/config .config 2>/dev/null || true
 # Kernel 4.19 compat: MODULE_IMPORT_NS not defined until 5.x+
 if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "" >> include/linux/module.h
@@ -112,6 +109,10 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "#endif" >> include/linux/module.h
     echo "Added MODULE_IMPORT_NS compat shim to include/linux/module.h"
 fi
+
+# Clean in-tree generated files that confuse prepare3
+# prepare3 checks include/config/ in the source tree
+rm -rf include/config 2>/dev/null || true
 
 echo "Building kernel..."
 make $MAKE_ARGS CC="ccache clang" -j${PARALLEL_JOBS:-$(nproc)}
