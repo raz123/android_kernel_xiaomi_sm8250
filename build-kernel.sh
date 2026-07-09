@@ -93,22 +93,28 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "Added MODULE_IMPORT_NS compat shim"
 fi
 
-# Pre-generate vdso.lds — 4.19 O=out build fails to auto-generate it
-echo "Pre-generating vdso.lds..."
-mkdir -p out/arch/arm64/kernel/vdso/
-clang -E -P -C -Uaarch64 \
-    -Iarch/arm64/include -Iarch/arm64/include/generated \
-    -Iinclude -Iinclude/generated \
-    -Iarch/arm64/include/uapi -Iarch/arm64/include/generated/uapi \
-    -Iinclude/uapi -Iinclude/generated/uapi \
-    -include include/linux/kconfig.h \
-    --target=aarch64-linux-gnu \
-    arch/arm64/kernel/vdso/vdso.lds.S \
-    -o out/arch/arm64/kernel/vdso/vdso.lds 2>/dev/null && \
-  cp out/arch/arm64/kernel/vdso/vdso.lds arch/arm64/kernel/vdso/vdso.lds || \
-  clang -E -P -C -Uaarch64 arch/arm64/kernel/vdso/vdso.lds.S -o arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || true
+# Pre-generate ALL .lds files — 4.19 O=out build fails to auto-generate them
+echo "Pre-generating .lds files..."
+find . -name '*.lds.S' -not -path './out/*' -not -path './.git/*' | while read lds_s; do
+    lds="${lds_s%.S}"
+    out_lds="out/${lds#./}"
+    mkdir -p "$(dirname $out_lds)"
+    clang -E -P -C -Uaarch64 \
+        -Iarch/arm64/include -Iarch/arm64/include/generated \
+        -Iinclude -Iinclude/generated \
+        -Iarch/arm64/include/uapi -Iarch/arm64/include/generated/uapi \
+        -Iinclude/uapi -Iinclude/generated/uapi \
+        -include include/linux/kconfig.h \
+        --target=aarch64-linux-gnu \
+        "$lds_s" -o "$out_lds" 2>/dev/null || \
+    clang -E -P -C -Uaarch64 "$lds_s" -o "$out_lds" 2>/dev/null || \
+    cp "$lds_s" "$out_lds" 2>/dev/null || true
+    # Also copy to source tree (make looks there with O=out)
+    cp "$out_lds" "$lds" 2>/dev/null || true
+done
+echo "Done pre-generating .lds files"
 echo "Building kernel..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 2>&1 | tee build.log
+make $MAKE_ARGS CC="ccache clang" V=1 -j${PARALLEL_JOBS:-$(nproc)}
 echo ""
 
 # Generate combined DTB
