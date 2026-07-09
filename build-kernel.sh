@@ -95,6 +95,9 @@ fi
 
 # Pre-generate ALL .lds files — 4.19 O=out build fails to auto-generate them
 echo "Pre-generating .lds files..."
+echo "CWD: $(pwd)"
+find . -name '*.lds.S' -not -path './out/*' -not -path './.git/*' | head -5
+find . -name '*.lds.S' -not -path './out/*' -not -path './.git/*' | wc -l
 find . -name '*.lds.S' -not -path './out/*' -not -path './.git/*' | while read lds_s; do
     lds="${lds_s%.S}"
     out_lds="out/${lds#./}"
