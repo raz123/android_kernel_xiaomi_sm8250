@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ex
 
+cd "$(dirname "$0")/.."
+
 # Run on HOST (not Docker) — only needs git, sed, python3
 # Env: BUILD_NUMBER, KSU_ENABLED
 
@@ -16,7 +18,7 @@ git clone https://github.com/AstideLabs/AnyKernel3 -b master --single-branch --d
 cp anykernel.sh anykernel/anykernel.sh
 
 # === A/B SLOT FIX ===
-grep -q '^SLOT_SELECT=active' anykernel/anykernel.sh || sed -i '1i\SLOT_SELECT=active' anykernel/anykernel.sh
+grep -q '^SLOT_SELECT=' anykernel/anykernel.sh || sed -i '1i\SLOT_SELECT=active' anykernel/anykernel.sh
 
 # Copy kernel image
 mkdir -p anykernel/kernels/aosp/
