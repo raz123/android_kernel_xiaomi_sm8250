@@ -110,8 +110,14 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "Added MODULE_IMPORT_NS compat shim to include/linux/module.h"
 fi
 
+# Pre-generate vdso.lds — 4.19 O=out builds fail to auto-generate it
+clang -E -P -C -Uaarch64 arch/arm64/kernel/vdso/vdso.lds.S -o arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || true
+
+# Pre-generate vdso.lds — fix O=out sub-make not receiving O flag
+clang -E -P -C -Uaarch64 arch/arm64/kernel/vdso/vdso.lds.S -o arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || true
+
 # Clean in-tree generated files that confuse prepare3
-# prepare3 checks include/config/ in the source tree
+# prepare3 checks include/config/ and .config in the source tree
 rm -rf include/config .config 2>/dev/null || true
 
 echo "Building kernel..."

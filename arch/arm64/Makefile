@@ -201,9 +201,9 @@ endif
 
 PHONY += vdso_install
 vdso_install:
-	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso $@
+	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso O=$(O) $@
 	$(if $(CONFIG_COMPAT_VDSO), \
-		$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso32 $@)
+		$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso32 O=$(O) $@)
 
 # We use MRPROPER_FILES and CLEAN_FILES now
 archclean:
@@ -219,9 +219,9 @@ ifeq ($(KBUILD_EXTMOD),)
 # this hack.
 prepare: vdso_prepare
 vdso_prepare: prepare0
-	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso include/generated/vdso-offsets.h
+	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso O=$(O) include/generated/vdso-offsets.h
 	$(if $(CONFIG_COMPAT_VDSO),$(Q)$(MAKE) \
-		$(build)=arch/arm64/kernel/vdso32  \
+		$(build)=arch/arm64/kernel/vdso32 O=$(O) \
 		include/generated/vdso32-offsets.h)
 endif
 
