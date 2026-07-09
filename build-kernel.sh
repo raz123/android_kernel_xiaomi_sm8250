@@ -112,10 +112,10 @@ fi
 
 # Clean in-tree generated files that confuse prepare3
 # prepare3 checks include/config/ in the source tree
-rm -rf include/config 2>/dev/null || true
+rm -rf include/config .config 2>/dev/null || true
 
 echo "Building kernel..."
-make $MAKE_ARGS CC="ccache clang" -j${PARALLEL_JOBS:-$(nproc)}
+make $MAKE_ARGS CC="ccache clang" V=1 -j${PARALLEL_JOBS:-$(nproc)}
 echo ""
 
 # Generate combined DTB (concatenate all individual DTBs)
