@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     git g++-arm-linux-gnueabihf libcap-dev libelf-dev libssl-dev \
     llvm lld m4 python3-dev rsync wget xz-utils zip \
     gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+    dos2unix \
     libb64-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

@@ -30,19 +30,6 @@ MAKE_ARGS="ARCH=arm64 \
            LLVM=1 \
            LLVM_IAS=1"
 
-# ReSukiSU (skip when KSU=0 for vanilla builds)
-if [ "$KSU" = "1" ]; then
-    echo "ReSukiSU mode"
-    KsuDir="drivers/kernelsu"
-    if [ -d "$KsuDir" ]; then
-        echo "ReSukiSU: enabling KSU..."
-        scripts/config --file out/.config --enable CONFIG_KSU
-        scripts/config --file out/.config --enable CONFIG_KSU_MANUAL_HOOK
-    else
-        echo "ReSukiSU: directory not found, skipping"
-    fi
-fi
-
 # Clean previous build
 if [ "${CLEAN_BUILD:-0}" = "1" ] || [ ! -f "out/Makefile" ]; then
     rm -rf out/
@@ -97,7 +84,6 @@ find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + >out/arch/arm64/boot/d
 # Collect output
 mkdir -p out/modules
 if [ -f "out/arch/arm64/boot/Image" ]; then
-    cp out/arch/arm64/boot/Image out/arch/arm64/boot/Image.gz
     gzip -f out/arch/arm64/boot/Image
 fi
 if [ -f "out/arch/arm64/boot/dtb" ]; then
