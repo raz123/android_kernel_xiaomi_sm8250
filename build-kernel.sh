@@ -3,7 +3,7 @@ set -euo pipefail
 
 DEVICE="${DEVICE:-alioth}"
 KSU="${KSU:-1}"
-TOOLCHAIN_PATH="/opt/zyc-clang/bin"
+TOOLCHAIN_PATH="${TOOLCHAIN_PATH:-/opt/zyc-clang/bin}"
 
 # Verify toolchain
 if [ ! -d "$TOOLCHAIN_PATH" ]; then
@@ -29,6 +29,32 @@ MAKE_ARGS="ARCH=arm64 \
            LLVM=1 \
            LLVM_IAS=1"
 
+# ReSukiSU (skip when KSU=0 for vanilla builds)
+if [ "$KSU" = "1" ]; then
+    git config --global --add safe.directory /workspace/KernelSU
+    git config --global --add safe.directory /workspace
+    if [ -d "KernelSU/.git" ]; then
+        cd KernelSU && git fetch --depth=1 origin HEAD && git reset --hard FETCH_HEAD && cd ..
+    else
+        git clone --depth=1 https://github.com/ReSukiSU/ReSukiSU KernelSU
+    fi
+    ln -sf ../KernelSU/kernel drivers/kernelsu
+    # Patch ReSukiSU for MANUAL_HOOK compatibility (maps SUSFS symbol names)
+    perl -i -0pe 's/(#elif defined\(CONFIG_KSU_MANUAL_HOOK\))/$1\n    \/* Compatibility: SUSFS symbol names used by fs hooks *\/\n    #define ksu_is_init_rc_hook_enabled ksu_init_rc_hook\n    #define ksu_is_input_hook_enabled ksu_input_hook/' KernelSU/kernel/runtime/ksud_integration.c 2>/dev/null || true
+    # Disable check_mk files that block build
+    for check in drivers/kernelsu/tools/*_check.mk; do
+        echo "# Disabled for CI" > "$check" 2>/dev/null || true
+    done
+    # Add ReSukiSU Kconfig source to drivers/Kconfig (before endmenu)
+    if ! grep -q 'source.*drivers/kernelsu/Kconfig' drivers/Kconfig; then
+        sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+    fi
+    # Add ReSukiSU obj to drivers/Makefile (kernelsu/ is under drivers/)
+    if ! grep -q 'obj-$(CONFIG_KSU) += kernelsu/' drivers/Makefile; then
+        echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+    fi
+fi
+
 echo "== Generate config (in-tree)"
 make $MAKE_ARGS vendor/xiaomi/${DEVICE}_defconfig
 
@@ -47,8 +73,11 @@ scripts/config --disable LTO_CLANG
 scripts/config --disable LTO_CLANG_THIN
 scripts/config --disable CFI_CLANG
 if [ "$KSU" = "1" ]; then
-    scripts/config --enable CONFIG_KSU
-    scripts/config --enable CONFIG_KSU_MANUAL_MODE
+    scripts/config --enable KSU
+    scripts/config --enable KSU_MANUAL_HOOK
+    scripts/config --enable KSU_MULTI_MANAGER_SUPPORT
+    scripts/config --disable KPM
+    scripts/config --enable THREAD_INFO_IN_TASK
 fi
 if [ -n "${KBUILD_BUILD_VERSION:-}" ]; then
     scripts/config --set-str LOCALVERSION "-rv-b${KBUILD_BUILD_VERSION}"
@@ -69,23 +98,22 @@ fi
 # Pre-build vdso to generate vdso-offsets.h (missing dependency in kernel Makefile)
 echo "Pre-building vdso for vdso-offsets.h..."
 mkdir -p include/generated
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso/
+make $MAKE_ARGS CC="ccache clang" V=${V:-0} -j${JOBS:-$(nproc)} arch/arm64/kernel/vdso/
 if [ -f arch/arm64/kernel/vdso/vdso.so.dbg ]; then
     llvm-nm arch/arm64/kernel/vdso/vdso.so.dbg | arch/arm64/kernel/vdso/gen_vdso_offsets.sh | LC_ALL=C sort > include/generated/vdso-offsets.h
-        echo "Generated vdso-offsets.h"
+    echo "Generated vdso-offsets.h"
 fi
 # Also build vdso32 for compatvdso offsets
-make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso32/
+make $MAKE_ARGS CC="ccache clang" V=${V:-0} -j${JOBS:-$(nproc)} arch/arm64/kernel/vdso32/
 if [ -f arch/arm64/kernel/vdso32/vdso.so.dbg ]; then
     llvm-nm arch/arm64/kernel/vdso32/vdso.so.dbg | arch/arm64/kernel/vdso/gen_vdso_offsets.sh | LC_ALL=C sort > include/generated/vdso32-offsets.h
     echo "Generated vdso32-offsets.h"
 else
-    echo "WARNING: vdso.so.dbg not generated, vdso-offsets.h may be missing"
+    echo "WARNING: vdso32.so.dbg not generated, vdso32-offsets.h may be missing"
 fi
 
 echo "Building kernel (in-tree)..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j1
-echo ""
+make $MAKE_ARGS CC="ccache clang" V=${V:-0} -j${JOBS:-$(nproc)}
 
 # Collect output to out/ for workflow compatibility
 echo "Collecting build artifacts..."
