@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
-ccflags-y += -I$(srctree)/techpack/video/msm/vidc/ \
 ccflags-y += -I$(src)
+ccflags-y += -I$(srctree)/techpack/video/msm/vidc/ \
     -I$(srctree)/drivers/devfreq/
 
 msm-vidc-objs := vidc/msm_v4l2_vidc.o \
