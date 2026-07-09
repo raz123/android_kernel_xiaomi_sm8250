@@ -67,7 +67,7 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
 fi
 
 echo "Building kernel (in-tree)..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j${PARALLEL_JOBS:-$(nproc)}
+make $MAKE_ARGS CC="ccache clang" V=1 -j1
 echo ""
 
 # Collect output to out/ for workflow compatibility
