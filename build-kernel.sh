@@ -108,7 +108,7 @@ clang -E -P -C -Uaarch64 \
   cp out/arch/arm64/kernel/vdso/vdso.lds arch/arm64/kernel/vdso/vdso.lds || \
   clang -E -P -C -Uaarch64 arch/arm64/kernel/vdso/vdso.lds.S -o arch/arm64/kernel/vdso/vdso.lds 2>/dev/null || true
 echo "Building kernel..."
-make $MAKE_ARGS CC="ccache clang" V=1 -j${PARALLEL_JOBS:-$(nproc)}
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 2>&1 | tee build.log
 echo ""
 
 # Generate combined DTB
