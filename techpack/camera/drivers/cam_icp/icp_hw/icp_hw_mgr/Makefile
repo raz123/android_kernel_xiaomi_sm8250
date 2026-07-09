@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 ccflags-y += -I$(srctree)/techpack/camera/include/uapi
+ccflags-y += -I$(src)
 ccflags-y += -I$(srctree)/techpack/camera/drivers/isp/isp_hw/include
 ccflags-y += -I$(srctree)/techpack/camera/drivers/cam_icp/icp_hw/include
 ccflags-y += -I$(srctree)/techpack/camera/drivers/isp/isp_hw/hw_utils/include

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 ccflags-y += -I$(srctree)/techpack/camera-bengal/include/uapi
+ccflags-y += -I$(src)
 ccflags-y += -I$(srctree)/techpack/camera-bengal/include/uapi
 ccflags-y += -I$(srctree)/techpack/camera-bengal/drivers/cam_core
 ccflags-y += -I$(srctree)/techpack/camera-bengal/drivers/cam_cpas/include
