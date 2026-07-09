@@ -43,6 +43,9 @@ fi
 
 # Apply additional configs
 scripts/config --disable IKHEADERS
+scripts/config --disable LTO_CLANG
+scripts/config --disable LTO_CLANG_THIN
+scripts/config --disable CFI_CLANG
 if [ "$KSU" = "1" ]; then
     scripts/config --enable CONFIG_KSU
     scripts/config --enable CONFIG_KSU_MANUAL_MODE
