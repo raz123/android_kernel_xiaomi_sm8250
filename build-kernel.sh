@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euxo pipefail
 
 DEVICE="${DEVICE:-alioth}"
 KSU="${KSU:-1}"
