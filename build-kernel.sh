@@ -98,13 +98,12 @@ fi
 if [ -n "${KBUILD_BUILD_VERSION:-}" ]; then
     scripts/config --file out/.config --set-str LOCALVERSION "-aptusitu-perf-b${KBUILD_BUILD_VERSION}"
 fi
-# Reset source tree — config steps generate in-tree headers
-# that confuse prepare3's git-clean check
-git checkout -- . 2>/dev/null || true
-git clean -fd 2>/dev/null || true
-
 # Resolve dependency chain after config changes
 make $MAKE_ARGS olddefconfig
+
+# Remove in-tree generated files that confuse prepare3
+# prepare3 checks include/config/ and .config in the source tree
+rm -rf include/config .config 2>/dev/null || true
 # Kernel 4.19 compat: MODULE_IMPORT_NS not defined until 5.x+
 if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "" >> include/linux/module.h

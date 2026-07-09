@@ -31,13 +31,6 @@ jobs:
         working-directory: build
         run: docker build -t kernel-builder .
 
-      - name: Clean source before Docker build
-        working-directory: build
-        run: |
-          # Remove generated files so container gets a clean tree
-          make ARCH=arm64 mrproper 2>/dev/null || true
-          rm -rf .git 2>/dev/null || true
-
       - name: Build kernel
         run: |
           mkdir -p /tmp/ccache-cache
