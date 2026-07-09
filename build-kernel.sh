@@ -31,37 +31,28 @@ MAKE_ARGS="ARCH=arm64 \
 
 # ReSukiSU (skip when KSU=0 for vanilla builds)
 if [ "$KSU" = "1" ]; then
-    echo "== ReSukiSU: Starting integration =="
     git config --global --add safe.directory /workspace/KernelSU
     git config --global --add safe.directory /workspace
     if [ -d "KernelSU/.git" ]; then
-        echo "  -> Updating existing KernelSU clone"
         cd KernelSU && git fetch --depth=1 origin HEAD && git reset --hard FETCH_HEAD && cd ..
     else
-        echo "  -> Cloning ReSukiSU from GitHub"
         git clone --depth=1 https://github.com/ReSukiSU/ReSukiSU KernelSU
     fi
-    echo "  -> Creating symlink drivers/kernelsu -> KernelSU/kernel"
     ln -sf ../KernelSU/kernel drivers/kernelsu
-    ls -la drivers/kernelsu/ | head -3
-    echo "  -> Patching ksud_integration.c for MANUAL_HOOK compat"
-    perl -i -0pe 's/(#elif defined\(CONFIG_KSU_MANUAL_HOOK\))/$1\n    \/\* Compatibility: SUSFS symbol names used by fs hooks *\/\n    #define ksu_is_init_rc_hook_enabled ksu_init_rc_hook\n    #define ksu_is_input_hook_enabled ksu_input_hook/' KernelSU/kernel/runtime/ksud_integration.c 2>/dev/null || true
-    echo "  -> Disabling check_mk files"
+    # Patch ReSukiSU for MANUAL_HOOK compatibility (maps SUSFS symbol names)
+    perl -i -0pe 's/(#elif defined\(CONFIG_KSU_MANUAL_HOOK\))/$1\n    \/* Compatibility: SUSFS symbol names used by fs hooks *\/\n    #define ksu_is_init_rc_hook_enabled ksu_init_rc_hook\n    #define ksu_is_input_hook_enabled ksu_input_hook/' KernelSU/kernel/runtime/ksud_integration.c 2>/dev/null || true
+    # Disable check_mk files that block build
     for check in drivers/kernelsu/tools/*_check.mk; do
         echo "# Disabled for CI" > "$check" 2>/dev/null || true
     done
-    echo "  -> Injecting Kconfig source into drivers/Kconfig"
+    # Add ReSukiSU Kconfig source to drivers/Kconfig (before endmenu)
     if ! grep -q 'source.*drivers/kernelsu/Kconfig' drivers/Kconfig; then
         sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
     fi
-    echo "  -> Injecting obj-y into drivers/Makefile"
-    if ! grep -q 'obj-\$(CONFIG_KSU) += kernelsu/' drivers/Makefile; then
+    # Add ReSukiSU obj to drivers/Makefile (kernelsu/ is under drivers/)
+    if ! grep -q 'obj-$(CONFIG_KSU) += kernelsu/' drivers/Makefile; then
         echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
     fi
-    echo "== ReSukiSU: Integration complete =="
-    echo "  -> Verifying: $(ls drivers/kernelsu/Kconfig 2>&1)"
-    echo "  -> Verifying: $(grep 'kernelsu' drivers/Kconfig 2>&1)"
-    echo "  -> Verifying: $(grep 'kernelsu' drivers/Makefile 2>&1)"
 fi
 
 echo "== Generate config (in-tree)"
