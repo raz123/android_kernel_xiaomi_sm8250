@@ -72,7 +72,13 @@ mkdir -p include/generated
 make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso/
 if [ -f arch/arm64/kernel/vdso/vdso.so.dbg ]; then
     llvm-nm arch/arm64/kernel/vdso/vdso.so.dbg | arch/arm64/kernel/vdso/gen_vdso_offsets.sh | LC_ALL=C sort > include/generated/vdso-offsets.h
-    echo "Generated vdso-offsets.h"
+        echo "Generated vdso-offsets.h"
+fi
+# Also build vdso32 for compatvdso offsets
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso32/
+if [ -f arch/arm64/kernel/vdso32/vdso.so.dbg ]; then
+    llvm-nm arch/arm64/kernel/vdso32/vdso.so.dbg | arch/arm64/kernel/vdso32/gen_vdso_offsets.sh | LC_ALL=C sort > include/generated/vdso32-offsets.h
+    echo "Generated vdso32-offsets.h"
 else
     echo "WARNING: vdso.so.dbg not generated, vdso-offsets.h may be missing"
 fi
