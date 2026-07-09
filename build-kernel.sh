@@ -35,10 +35,6 @@ if [ "${CLEAN_BUILD:-0}" = "1" ] || [ ! -f "out/Makefile" ]; then
     rm -rf out/
 fi
 
-# Clean in-tree generated files before first make
-# prepare3 checks include/config/ and .config in the source tree
-rm -rf include/config .config 2>/dev/null || true
-
 echo "== Generate config"
 # jun09 uses vendor/xiaomi/ path for defconfig
 make $MAKE_ARGS vendor/xiaomi/${DEVICE}_defconfig
@@ -63,6 +59,11 @@ fi
 
 # Resolve dependency chain after config changes
 make $MAKE_ARGS olddefconfig
+
+# Clean in-tree generated files that confuse prepare3
+# prepare3 checks include/config/ and .config in the source tree
+# Must be AFTER olddefconfig (which needs include/config/) but BEFORE main build
+rm -rf include/config .config 2>/dev/null || true
 
 # Kernel 4.19 compat: MODULE_IMPORT_NS not defined until 5.x+
 if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
