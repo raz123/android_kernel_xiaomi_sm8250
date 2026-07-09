@@ -66,6 +66,11 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "Added MODULE_IMPORT_NS compat shim"
 fi
 
+# Pre-build vdso to generate vdso-offsets.h (missing dependency in kernel Makefile)
+echo "Pre-building vdso for vdso-offsets.h..."
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso
+make $MAKE_ARGS CC="ccache clang" V=1 -j1 arch/arm64/kernel/vdso32
+
 echo "Building kernel (in-tree)..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j1
 echo ""
