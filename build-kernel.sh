@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 DEVICE="${DEVICE:-alioth}"
 KSU="${KSU:-1}"
@@ -65,17 +65,6 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "#endif" >> include/linux/module.h
     echo "Added MODULE_IMPORT_NS compat shim"
 fi
-
-# Pre-generate linker scripts (pattern rule fails in Docker CI)
-echo "== Pre-generating linker scripts ==="
-echo "Checking vdso.lds.S: $(ls -la arch/arm64/kernel/vdso/vdso.lds.S 2>&1)"
-echo "Checking vdso.lds: $(ls -la arch/arm64/kernel/vdso/vdso.lds 2>&1)"
-clang -E -P -Uaarch64 -D__ASSEMBLY__ -DLINKER_SCRIPT \
-    -I./arch/arm64/include -I./include -include ./include/linux/kconfig.h \
-    arch/arm64/kernel/vdso/vdso.lds.S \
-    -o arch/arm64/kernel/vdso/vdso.lds && \
-echo "Pre-generated vdso.lds successfully" || echo "Pre-generation failed"
-echo "Post-check: $(ls -la arch/arm64/kernel/vdso/vdso.lds 2>&1)"
 
 echo "Building kernel (in-tree)..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j1
