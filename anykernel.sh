@@ -32,18 +32,16 @@ NO_BLOCK_DISPLAY=1
 . tools/ak3-core.sh;
 
 # boot install
-# === Dual-Slot Flash ===
+# === Dual-Slot Flash (proven from pocof3) ===
 DUAL_SLOT=1;
 OTHER_BLOCK="";
 if [ "$SLOT" ]; then
-  ui_print " ";
   ui_print "  -----------------------------------------";
   ui_print "  Dual-Slot Flash Mode";
   ui_print "  -----------------------------------------";
   ui_print "  Default: flash BOTH A/B slots.";
-  ui_print "  Abort: hold VOLUME UP in recovery";
+  ui_print "  Hold VOLUME UP to flash active slot only.";
   ui_print "  -----------------------------------------";
-  ui_print "  ";
   if timeout 10 getevent -c5 2>/dev/null | grep -qm1 '0001 0073'; then
     DUAL_SLOT=0;
     ui_print "  -> VOLUME UP pressed: active slot only!";
