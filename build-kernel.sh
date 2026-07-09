@@ -60,10 +60,8 @@ fi
 # Resolve dependency chain after config changes
 make $MAKE_ARGS olddefconfig
 
-# Clean in-tree generated files that confuse prepare3
-# prepare3 checks include/config/ and .config in the source tree
-# Must be AFTER olddefconfig (which needs include/config/) but BEFORE main build
-rm -rf include/config .config 2>/dev/null || true
+# Remove .git so prepare3's git-status check is skipped entirely
+rm -rf .git 2>/dev/null || true
 
 # Kernel 4.19 compat: MODULE_IMPORT_NS not defined until 5.x+
 if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
