@@ -12,7 +12,7 @@ KSU_SUFFIX="_ReSukiSU"
 
 # Clone AnyKernel3 flasher (provides tools/ak3-core.sh, bin/, etc.)
 rm -rf anykernel
-git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git anykernel
+git clone https://github.com/AstideLabs/AnyKernel3 -b master --single-branch --depth=1 anykernel
 
 # Overlay our custom anykernel.sh
 cp anykernel.sh anykernel/anykernel.sh
@@ -20,22 +20,30 @@ cp anykernel.sh anykernel/anykernel.sh
 # === A/B SLOT FIX ===
 grep -q '^SLOT_SELECT=' anykernel/anykernel.sh || sed -i '1i\SLOT_SELECT=active' anykernel/anykernel.sh
 
-# Copy kernel image to root (AnyKernel3 looks for Image at root)
+# Copy kernel image
+mkdir -p anykernel/kernels/aosp/
 if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-  cp out/arch/arm64/boot/Image.gz-dtb anykernel/Image
+  cp out/arch/arm64/boot/Image.gz-dtb anykernel/kernels/aosp/Image
 elif [ -f out/arch/arm64/boot/Image.gz ]; then
-  cp out/arch/arm64/boot/Image.gz anykernel/Image
+  cp out/arch/arm64/boot/Image.gz anykernel/kernels/aosp/Image
 elif [ -f out/arch/arm64/boot/Image ]; then
-  cp out/arch/arm64/boot/Image anykernel/Image
+  cp out/arch/arm64/boot/Image anykernel/kernels/aosp/Image
 fi
 
-# Copy DTB to root
+# Copy DTB
 for dtb in out/arch/arm64/boot/dts/qcom/sm8250*.dtb out/arch/arm64/boot/dtb; do
-  [ -f "$dtb" ] && cp "$dtb" anykernel/dtb && break
+  [ -f "$dtb" ] && cp "$dtb" anykernel/kernels/aosp/dtb && break
 done
 
-# Copy dtbo.img to root
-[ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img anykernel/dtbo.img
+# Copy dtbo.img
+[ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img anykernel/kernels/aosp/dtbo.img
+
+# Relax checks if dtb or dtbo missing
+if [ ! -f anykernel/kernels/aosp/dtb ] || [ ! -f anykernel/kernels/aosp/dtbo.img ]; then
+  sed -i "s|\[ -f \$AKHOME/kernels/\$os/Image \] && \[ -f \$AKHOME/kernels/\$os/dtb \] && \[ -f \$AKHOME/kernels/\$os/dtbo.img \]|[ -f \$AKHOME/kernels/\$os/Image ]|" anykernel/anykernel.sh
+  sed -i "/mv \$AKHOME\/kernels\/\$os\/dtb/d" anykernel/anykernel.sh
+  sed -i "/dtbo.img/d" anykernel/anykernel.sh
+fi
 
 # Copy kernel modules
 [ -d "out/modules" ] && [ "$(ls -A out/modules 2>/dev/null)" ] && mkdir -p anykernel/anykernel-modules/ && cp out/modules/*.ko anykernel/anykernel-modules/ 2>/dev/null || true
