@@ -219,10 +219,7 @@ ifeq ($(KBUILD_EXTMOD),)
 # this hack.
 prepare: vdso_prepare
 vdso_prepare: prepare0
-	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso O=$(O) include/generated/vdso-offsets.h
-	$(if $(CONFIG_COMPAT_VDSO),$(Q)$(MAKE) \
-		$(build)=arch/arm64/kernel/vdso32 O=$(O) \
-		include/generated/vdso32-offsets.h)
+	@true # 4.19 O=out: skip vdso_prepare (pre-generated in build script)
 endif
 
 define archhelp
