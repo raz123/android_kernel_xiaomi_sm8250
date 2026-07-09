@@ -34,15 +34,15 @@ jobs:
       - name: Build kernel
         run: |
           mkdir -p /tmp/ccache-cache
+          # Copy source into container (no .git) to avoid prepare3 dirty-tree check
           docker run --rm \
-            -v ${{ github.workspace }}/build:/workspace \
+            -v ${{ github.workspace }}/build:/source:ro \
             -v /tmp/ccache-cache:/root/.ccache \
-            -w /workspace \
             -e KSU=${{ inputs.ksu == false && '0' || '1' }} \
             -e KBUILD_BUILD_TIMESTAMP='' \
             -e KBUILD_BUILD_VERSION=${{ github.run_number }} \
             kernel-builder \
-            bash -c "chmod +x build-kernel.sh && KSU=\$KSU bash build-kernel.sh"
+            bash -c "cp -a /source/. /workspace/ && cd /workspace && rm -rf .git && chmod +x build-kernel.sh && KSU=\$KSU bash build-kernel.sh"
 
       - name: Fix file permissions
         if: always()
