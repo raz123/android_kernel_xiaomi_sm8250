@@ -65,6 +65,14 @@ fi
 # Build
 make $MAKE_ARGS vendor/xiaomi/${DEVICE}_defconfig
 
+# Merge vendor overlays (jun09 requires sm8250-common + alioth configs)
+if [ -f "arch/arm64/configs/vendor/xiaomi/sm8250-common.config" ] && \
+   [ -f "arch/arm64/configs/vendor/xiaomi/alioth.config" ]; then
+    scripts/kconfig/merge_config.sh -m out/.config \
+        arch/arm64/configs/vendor/xiaomi/sm8250-common.config \
+        arch/arm64/configs/vendor/xiaomi/alioth.config
+fi
+
 # Apply additional configs matching AstideLabs
 scripts/config --file out/.config -e BBG
 scripts/config --file out/.config -e REKERNEL -e REKERNEL_NETWORK
