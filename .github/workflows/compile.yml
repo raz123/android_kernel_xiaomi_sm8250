@@ -89,60 +89,18 @@ jobs:
           [ "$FAILED" -eq 1 ] && { echo "=== QA GATES FAILED ==="; exit 1; }
           echo "=== QA GATES PASSED ==="
 
-      - name: Install packaging tools
-        run: sudo pacman -S --noconfirm zip dos2unix
-
       - name: Package AnyKernel3 ZIP
         working-directory: build
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-        run: |
-          BUILD_DATE=$(date -u +%Y%m%d)
-          KSU_LABEL="ReSukiSU"
-          [ "${{ inputs.ksu }}" != "true" ] && KSU_LABEL="Vanilla"
-          ZIP_NAME="alioth-kernel-${BUILD_DATE}-b${BUILD_NUMBER}-${KSU_LABEL}.zip"
-
-          git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git anykernel3
-
-          cat > anykernel3/anykernel.sh << 'AKEOF'
-          # AnyKernel3 Ramdisk Mod Script
-          properties() { '
-          kernel.string=Alioth Kernel for Poco F3/Redmi K40/Mi 11X
-          do.devicecheck=1
-          device.name1=alioth
-          device.name2=mi 11x
-          device.name3=redmi k40
-          do.modules=0
-          do.systemless=1
-          do.cleanup=1
-          do.cleanuponabort=0
-          BLOCK=/dev/block/bootdevice/by-name/boot
-          IS_SLOT_DEVICE=1
-          RAMDISK_COMPRESSION=auto
-          PATCH_VBMETA_FLAG=auto
-          '; }
-          . tools/ak3-core.sh
-          split_boot
-          patch_cmdline zswap.enabled 1
-          patch_cmdline zswap.compressor lz4
-          patch_cmdline zswap.zpool z3fold
-          patch_cmdline zswap.max_pool_percent 25
-          flash_boot
-          AKEOF
-
-          cp out/arch/arm64/boot/Image.gz anykernel3/
-          cp out/arch/arm64/boot/dtbo.img anykernel3/ 2>/dev/null || true
-
-          cd anykernel3
-          dos2unix anykernel.sh META-INF/com/google/android/update-binary \
-            META-INF/com/google/android/updater-script tools/ak3-core.sh 2>/dev/null || true
-          zip -r9 "../${ZIP_NAME}" * -x '.git' '.github' 'README.md' '*placeholder'
+          KSU_ENABLED: ${{ inputs.ksu }}
+        run: bash scripts/package-kernel.sh
 
       - name: Upload ZIP
         uses: actions/upload-artifact@v6
         with:
           name: anykernel3-zip
-          path: build/alioth-kernel-*.zip
+          path: build/alioth-kernel_*.zip
           if-no-files-found: error
 
       - name: Create GitHub Release
