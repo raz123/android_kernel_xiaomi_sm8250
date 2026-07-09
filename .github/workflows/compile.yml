@@ -90,7 +90,7 @@ jobs:
           echo "=== QA GATES PASSED ==="
 
       - name: Install packaging tools
-        run: sudo apt-get update && sudo apt-get install -y zip dos2unix
+        run: sudo pacman -S --noconfirm zip dos2unix || sudo apt-get update && sudo apt-get install -y zip dos2unix
 
       - name: Package AnyKernel3 ZIP
         working-directory: build
