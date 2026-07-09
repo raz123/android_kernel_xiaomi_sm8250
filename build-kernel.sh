@@ -63,7 +63,7 @@ if [ "${CLEAN_BUILD:-0}" = "1" ] || [ ! -f "out/Makefile" ]; then
 fi
 
 # Build
-make $MAKE_ARGS ${DEVICE}_defconfig
+make $MAKE_ARGS vendor/xiaomi/${DEVICE}_defconfig
 
 # Apply additional configs matching AstideLabs
 scripts/config --file out/.config -e BBG
