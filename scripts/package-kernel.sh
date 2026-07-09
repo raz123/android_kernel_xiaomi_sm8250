@@ -20,30 +20,22 @@ cp anykernel.sh anykernel/anykernel.sh
 # === A/B SLOT FIX ===
 grep -q '^SLOT_SELECT=' anykernel/anykernel.sh || sed -i '1i\SLOT_SELECT=active' anykernel/anykernel.sh
 
-# Copy kernel image
-mkdir -p anykernel/kernels/aosp/
+# Copy kernel image to root (AnyKernel3 looks for Image at root)
 if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-  cp out/arch/arm64/boot/Image.gz-dtb anykernel/kernels/aosp/Image
+  cp out/arch/arm64/boot/Image.gz-dtb anykernel/Image
 elif [ -f out/arch/arm64/boot/Image.gz ]; then
-  cp out/arch/arm64/boot/Image.gz anykernel/kernels/aosp/Image
+  cp out/arch/arm64/boot/Image.gz anykernel/Image
 elif [ -f out/arch/arm64/boot/Image ]; then
-  cp out/arch/arm64/boot/Image anykernel/kernels/aosp/Image
+  cp out/arch/arm64/boot/Image anykernel/Image
 fi
 
-# Copy DTB
+# Copy DTB to root
 for dtb in out/arch/arm64/boot/dts/qcom/sm8250*.dtb out/arch/arm64/boot/dtb; do
-  [ -f "$dtb" ] && cp "$dtb" anykernel/kernels/aosp/dtb && break
+  [ -f "$dtb" ] && cp "$dtb" anykernel/dtb && break
 done
 
-# Copy dtbo.img
-[ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img anykernel/kernels/aosp/dtbo.img
-
-# Relax checks if dtb or dtbo missing
-if [ ! -f anykernel/kernels/aosp/dtb ] || [ ! -f anykernel/kernels/aosp/dtbo.img ]; then
-  sed -i "s|\[ -f \$AKHOME/kernels/\$os/Image \] && \[ -f \$AKHOME/kernels/\$os/dtb \] && \[ -f \$AKHOME/kernels/\$os/dtbo.img \]|[ -f \$AKHOME/kernels/\$os/Image ]|" anykernel/anykernel.sh
-  sed -i "/mv \$AKHOME\/kernels\/\$os\/dtb/d" anykernel/anykernel.sh
-  sed -i "/dtbo.img/d" anykernel/anykernel.sh
-fi
+# Copy dtbo.img to root
+[ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img anykernel/dtbo.img
 
 # Copy kernel modules
 [ -d "out/modules" ] && [ "$(ls -A out/modules 2>/dev/null)" ] && mkdir -p anykernel/anykernel-modules/ && cp out/modules/*.ko anykernel/anykernel-modules/ 2>/dev/null || true
