@@ -31,18 +31,25 @@ jobs:
         working-directory: build
         run: docker build -t kernel-builder .
 
+      - name: Clean source before Docker build
+        working-directory: build
+        run: |
+          # Remove generated files so container gets a clean tree
+          make ARCH=arm64 mrproper 2>/dev/null || true
+          rm -rf .git 2>/dev/null || true
+
       - name: Build kernel
         run: |
           mkdir -p /tmp/ccache-cache
-          # Copy source into container (no .git) to avoid prepare3 dirty-tree check
           docker run --rm \
-            -v ${{ github.workspace }}/build:/source:ro \
+            -v ${{ github.workspace }}/build:/workspace \
             -v /tmp/ccache-cache:/root/.ccache \
+            -w /workspace \
             -e KSU=${{ inputs.ksu == false && '0' || '1' }} \
             -e KBUILD_BUILD_TIMESTAMP='' \
             -e KBUILD_BUILD_VERSION=${{ github.run_number }} \
             kernel-builder \
-            bash -c "cp -a /source/. /workspace/ && cd /workspace && rm -rf .git && chmod +x build-kernel.sh && KSU=\$KSU bash build-kernel.sh"
+            bash -c "chmod +x build-kernel.sh && KSU=\$KSU bash build-kernel.sh"
 
       - name: Fix file permissions
         if: always()
