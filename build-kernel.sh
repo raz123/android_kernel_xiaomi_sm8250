@@ -66,6 +66,15 @@ if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then
     echo "Added MODULE_IMPORT_NS compat shim"
 fi
 
+# Pre-generate linker scripts (pattern rule fails in Docker CI)
+for f in arch/arm64/kernel/vdso/vdso.lds.S; do
+    out="${f%.S}"
+    if [ -f "$f" ] && [ ! -f "$out" ]; then
+        echo "Pre-generating $out"
+        clang -E -P -Uaarch64 -D__ASSEMBLY__ -DLINKER_SCRIPT -I./arch/arm64/include -I./include -include ./include/linux/kconfig.h "$f" -o "$out"
+    fi
+done
+
 echo "Building kernel (in-tree)..."
 make $MAKE_ARGS CC="ccache clang" V=1 -j1
 echo ""
