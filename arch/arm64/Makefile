@@ -222,6 +222,10 @@ vdso_prepare: prepare0
 	@true # 4.19 O=out: skip vdso_prepare (pre-generated in build script)
 endif
 
+# Disable vdso32 build for diagnostic builds
+vdso_install:
+	@true
+
 define archhelp
   echo  '* Image.gz      - Compressed kernel image (arch/$(ARCH)/boot/Image.gz)'
   echo  '  Image         - Uncompressed kernel image (arch/$(ARCH)/boot/Image)'
