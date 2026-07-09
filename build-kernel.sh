@@ -99,18 +99,19 @@ find . -name '*.lds.S' -not -path './out/*' -not -path './.git/*' | while read l
     lds="${lds_s%.S}"
     out_lds="out/${lds#./}"
     mkdir -p "$(dirname $out_lds)"
-    clang -E -P -C -Uaarch64 \
+    if clang -E -P -C -Uaarch64 \
         -Iarch/arm64/include -Iarch/arm64/include/generated \
         -Iinclude -Iinclude/generated \
         -Iarch/arm64/include/uapi -Iarch/arm64/include/generated/uapi \
         -Iinclude/uapi -Iinclude/generated/uapi \
         -include include/linux/kconfig.h \
         --target=aarch64-linux-gnu \
-        "$lds_s" -o "$out_lds" 2>/dev/null || \
-    clang -E -P -C -Uaarch64 "$lds_s" -o "$out_lds" 2>/dev/null || \
-    cp "$lds_s" "$out_lds" 2>/dev/null || true
-    # Also copy to source tree (make looks there with O=out)
-    cp "$out_lds" "$lds" 2>/dev/null || true
+        "$lds_s" -o "$out_lds" 2>&1; then
+        cp "$out_lds" "$lds" 2>/dev/null || true
+    else
+        echo "WARN: Failed to preprocess $lds_s, copying raw"
+        cp "$lds_s" "$lds" 2>/dev/null || true
+    fi
 done
 echo "Done pre-generating .lds files"
 echo "Building kernel..."
