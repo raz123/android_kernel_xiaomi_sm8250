@@ -60,32 +60,6 @@ fi
 # Resolve dependency chain after config changes
 make $MAKE_ARGS olddefconfig
 
-# Remove .git so prepare3's git-status check is skipped entirely
-rm -rf .git 2>/dev/null || true
-
-# Fix 4.19 O=out bug: prepare3 checks if .config or include/config/ exist
-# in source tree, but they get created as prerequisites of prepare3 itself.
-# Patch: comment out the entire dirty-tree check block in prepare3.
-python3 << 'PATCH'
-import re
-with open('Makefile', 'r') as f:
-    lines = f.readlines()
-patched = []
-skip_until_fi = False
-for line in lines:
-    if 'if [ -f $(srctree)/.config -o -d $(srctree)/include/config ]' in line:
-        patched.append('\t@true # 4.19 O=out: skip dirty-tree check\n')
-        skip_until_fi = True
-        continue
-    if skip_until_fi:
-        if line.strip() == 'fi;':
-            skip_until_fi = False
-        continue
-    patched.append(line)
-with open('Makefile', 'w') as f:
-    f.writelines(patched)
-print('Patched prepare3 dirty-tree check')
-PATCH
 
 # Kernel 4.19 compat: MODULE_IMPORT_NS not defined until 5.x+
 if ! grep -q "MODULE_IMPORT_NS" include/linux/module.h 2>/dev/null; then

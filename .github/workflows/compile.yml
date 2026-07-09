@@ -32,6 +32,8 @@ jobs:
 
       - name: Build kernel
         run: |
+          # Remove .git before Docker to prevent prepare3 dirty-tree check
+          rm -rf ${{ github.workspace }}/build/.git
           mkdir -p /tmp/ccache-cache
           docker run --rm \
             -v ${{ github.workspace }}/build:/workspace \
