@@ -1,3 +1,4 @@
+SLOT_SELECT=all
 # AnyKernel3 Ramdisk Mod Script
 properties() { '
 kernel.string=Alioth Kernel for Poco F3/Redmi K40/Mi 11X
